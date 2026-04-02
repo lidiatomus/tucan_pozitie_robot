@@ -13,34 +13,22 @@ class EKFLocalization:
         self.x = initial_state.astype(float).reshape(3, 1)
         self.P = initial_cov.astype(float)
 
-        # Zgomotul modelului de mișcare
         self.Q = np.diag([0.02, 0.02, np.deg2rad(3.0)]) ** 2
-
-        # Zgomotul măsurătorii de la cameră
         self.R = np.diag([0.05, 0.05, np.deg2rad(5.0)]) ** 2
 
-    def predict(self, v, omega, dt):
-        theta = self.x[2, 0]
+    def predict_from_encoder_pose(self, encoder_pose):
+        x_enc = float(encoder_pose["x"])
+        y_enc = float(encoder_pose["y"])
+        theta_enc = normalize_angle(float(encoder_pose["theta"]))
 
-        self.x[0, 0] += v * np.cos(theta) * dt
-        self.x[1, 0] += v * np.sin(theta) * dt
-        self.x[2, 0] += omega * dt
-        self.x[2, 0] = normalize_angle(self.x[2, 0])
-
-        F = np.array([
-            [1.0, 0.0, -v * np.sin(theta) * dt],
-            [0.0, 1.0,  v * np.cos(theta) * dt],
-            [0.0, 0.0, 1.0]
+        self.x = np.array([
+            [x_enc],
+            [y_enc],
+            [theta_enc]
         ])
 
-        self.P = F @ self.P @ F.T + self.Q
+        self.P = self.P + self.Q
 
-    def get_state(self):
-        return {
-            "x": float(self.x[0, 0]),
-            "y": float(self.x[1, 0]),
-            "theta": float(self.x[2, 0])
-        }
     def update(self, z):
         z = np.asarray(z, dtype=float).reshape(3, 1)
 
@@ -57,6 +45,14 @@ class EKFLocalization:
 
         I = np.eye(3)
         self.P = (I - K @ H) @ self.P
+
+    def get_state(self):
+        return {
+            "x": float(self.x[0, 0]),
+            "y": float(self.x[1, 0]),
+            "theta": float(self.x[2, 0])
+        }
+
     def set_process_noise(self, qx, qy, qtheta_deg):
         self.Q = np.diag([qx, qy, np.deg2rad(qtheta_deg)]) ** 2
 

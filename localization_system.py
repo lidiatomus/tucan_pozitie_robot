@@ -17,43 +17,36 @@ class LocalizationSystem:
     def __init__(self):
         self.ekf = EKFLocalization()
 
-    def step(self, odom, measurement=None):
-        if not isinstance(odom, dict):
-            raise TypeError("odom trebuie sa fie dict")
+    def step(self, encoder_pose, camera_measurement=None):
+        if not isinstance(encoder_pose, dict):
+            raise TypeError("encoder_pose trebuie sa fie dict")
 
-        required_odom_keys = ["v", "omega", "dt"]
-        for key in required_odom_keys:
-            if key not in odom:
-                raise KeyError(f"Lipseste cheia '{key}' din odom")
+        required_encoder_keys = ["x", "y", "theta"]
+        for key in required_encoder_keys:
+            if key not in encoder_pose:
+                raise KeyError(f"Lipseste cheia '{key}' din encoder_pose")
 
-        v = float(odom["v"])
-        omega = float(odom["omega"])
-        dt = float(odom["dt"])
-
-        if dt <= 0:
-            raise ValueError("dt trebuie sa fie > 0")
-
-        self.ekf.predict(v, omega, dt)
+        self.ekf.predict_from_encoder_pose(encoder_pose)
 
         measurement_used = False
 
-        if measurement is not None:
-            if not isinstance(measurement, dict):
-                raise TypeError("measurement trebuie sa fie dict sau None")
+        if camera_measurement is not None:
+            if not isinstance(camera_measurement, dict):
+                raise TypeError("camera_measurement trebuie sa fie dict sau None")
 
-            if measurement.get("valid", False):
+            if camera_measurement.get("valid", False):
                 required_meas_keys = ["x", "y", "theta"]
                 for key in required_meas_keys:
-                    if key not in measurement:
-                        raise KeyError(f"Lipseste cheia '{key}' din measurement")
+                    if key not in camera_measurement:
+                        raise KeyError(f"Lipseste cheia '{key}' din camera_measurement")
 
                 current_state = self.ekf.get_state()
 
-                if is_measurement_reasonable(current_state, measurement):
+                if is_measurement_reasonable(current_state, camera_measurement):
                     z = [
-                        float(measurement["x"]),
-                        float(measurement["y"]),
-                        float(measurement["theta"])
+                        float(camera_measurement["x"]),
+                        float(camera_measurement["y"]),
+                        float(camera_measurement["theta"])
                     ]
                     self.ekf.update(z)
                     measurement_used = True
